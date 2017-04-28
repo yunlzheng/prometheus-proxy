@@ -25,6 +25,14 @@ func init() {
 }
 
 func main() {
+
+	err := regstryToConsul()
+	if err != nil {
+		fmt.Println("Registry agent to consul error....")
+		fmt.Println(err.Error())
+		return
+	}
+
 	router := gin.Default()
 
 	router.GET("/health", healthCheckEndpoint)
@@ -36,6 +44,44 @@ func main() {
 	}
 
 	router.Run(":9174")
+}
+
+func regstryToConsul() error {
+	client, err := api.NewClient(config)
+	if err != nil {
+		fmt.Println(fmt.Errorf("create consul client failed, error info is %s", err.Error()))
+		return err
+	}
+
+	metadataServer := getOr("RANCHER_METADATA", "http://rancher-metadata")
+	agentIP, _ := get("agent_ip", metadataServer)
+
+	fmt.Println("Start registry agent to consul....")
+
+	return client.Agent().ServiceRegister(&api.AgentServiceRegistration{
+		ID:                "prometheus-proxy-" + agentIP,
+		Name:              "prometheus-proxy",
+		EnableTagOverride: false,
+		Address:           agentIP,
+		Port:              9174,
+		Check: &api.AgentServiceCheck{
+			DeregisterCriticalServiceAfter: "60s",
+			HTTP:     "http://" + agentIP + ":9174/health",
+			Interval: "20s",
+			Timeout:  "20s",
+		},
+	})
+
+}
+
+func get(key string, server string) (string, error) {
+	resp, err := http.Get(server + "/latest/self/host/" + key)
+	if err != nil {
+		fmt.Println(err.Error())
+		return "", err
+	}
+	data, _ := ioutil.ReadAll(resp.Body)
+	return string(data), nil
 }
 
 func getOr(env string, value string) string {
