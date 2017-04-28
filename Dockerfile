@@ -11,7 +11,7 @@ COPY . /go/src/github.com/yunlzheng/prometheus-proxy
  RUN apk --update add ca-certificates jq curl\
   && apk --update add --virtual build-deps go git \
   && cd /go/src/github.com/yunlzheng/prometheus-proxy \
-  && GOPATH=/go \
+  && GOPATH=/go go get\
   && GOPATH=/go go build -o /bin/prometheus_proxy \
   && apk del --purge build-deps \
   && rm -rf /go/bin /go/pkg /var/cache/apk/*
